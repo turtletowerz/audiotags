@@ -193,7 +193,7 @@ bool audiotags_write_properties(TagLib_FileRefRef *fileRefRef, unsigned int len,
     TagLib::String value(values_c[i], TagLib::String::Type::UTF8);
 
     TagLib::PropertyMap properties = f->file()->properties();
-    TagLib::StringList values = value.split('\n');
+    TagLib::StringList values = value.split('\v');
     for (const auto &v : values)
       properties.insert(field, v);
     f->file()->setProperties(properties);

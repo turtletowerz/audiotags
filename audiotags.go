@@ -95,7 +95,7 @@ func (f *File) WriteTags(tagMap keyMap) bool {
 		fieldC := C.CString(field)
 		tagFields[i] = fieldC
 
-		valueC := C.CString(strings.Join(values, "\n"))
+		valueC := C.CString(strings.Join(values, "\v"))
 		tagValues[i] = valueC
 		i++
 	}

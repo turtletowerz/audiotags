@@ -188,7 +188,7 @@ bool audiotags_write_properties(TagLib_FileRefRef *fileRefRef, unsigned int len,
   properties.clear();
   f->file()->setProperties(properties);
 
-  for (uint i = 0; i < len; i++) {
+  for (unsigned int i = 0; i < len; i++) {
     TagLib::String field(fields_c[i], TagLib::String::Type::UTF8);
     TagLib::String value(values_c[i], TagLib::String::Type::UTF8);
 

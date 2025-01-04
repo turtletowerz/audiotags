@@ -22,8 +22,7 @@
 package audiotags
 
 /*
-#cgo pkg-config: taglib zlib
-#cgo LDFLAGS: -lstdc++
+#cgo pkg-config: taglib_c
 #include "audiotags.h"
 #include <stdlib.h>
 */
@@ -42,21 +41,21 @@ import (
 
 const (
 	JPEG = iota
-	PNG  = iota
+	PNG
 )
 
-type File C.TagLib_FileRefRef
-
-type AudioProperties struct {
-	Length, LengthMs, Bitrate, Samplerate, Channels int
-}
+type File C.TagLib_File
 
 func (f *File) HasMedia() bool {
 	return !f.ReadAudioProperties().isEmpty()
 }
 
+type AudioProperties struct {
+	Length, Bitrate, Samplerate, Channels int
+}
+
 func (props *AudioProperties) isEmpty() bool {
-	return props.Bitrate == 0 && props.LengthMs == 0 && props.Length == 0 && props.Samplerate == 0 && props.Channels == 0
+	return props.Bitrate == 0 && props.Length == 0 && props.Samplerate == 0 && props.Channels == 0
 }
 
 func Open(filename string) (*File, error) {
@@ -70,7 +69,7 @@ func Open(filename string) (*File, error) {
 }
 
 func (f *File) Close() {
-	C.audiotags_file_close((*C.TagLib_FileRefRef)(f))
+	C.taglib_file_free((*C.TagLib_File)(f))
 }
 
 func (f *File) ReadTags() keyMap {
@@ -79,13 +78,13 @@ func (f *File) ReadTags() keyMap {
 
 	m := keyMap{}
 	maps.Store(id, m)
-	C.audiotags_file_properties((*C.TagLib_FileRefRef)(f), C.int(id))
+	C.audiotags_file_properties((*C.TagLib_File)(f), C.int(id))
 	return m
 }
 
 func (f *File) WriteTags(tagMap keyMap) bool {
 	if len(tagMap) == 0 {
-		return bool(C.audiotags_clear_properties((*C.TagLib_FileRefRef)(f)))
+		return bool(C.audiotags_clear_properties((*C.TagLib_File)(f)))
 	}
 
 	tagFields := make([]*C.char, len(tagMap))
@@ -106,20 +105,19 @@ func (f *File) WriteTags(tagMap keyMap) bool {
 		}
 	}()
 
-	return bool(C.audiotags_write_properties((*C.TagLib_FileRefRef)(f), C.uint(len(tagMap)), &tagFields[0], &tagValues[0]))
+	return bool(C.audiotags_write_properties((*C.TagLib_File)(f), C.uint(len(tagMap)), &tagFields[0], &tagValues[0]))
 }
 
 func (f *File) ReadAudioProperties() *AudioProperties {
-	ap := C.audiotags_file_audioproperties((*C.TagLib_FileRefRef)(f))
-	if ap == nil {
+	props := C.audiotags_file_audioproperties((*C.TagLib_File)(f))
+	if props == nil {
 		return nil
 	}
 	p := AudioProperties{}
-	p.Length = int(C.audiotags_audioproperties_length(ap))
-	p.LengthMs = int(C.audiotags_audioproperties_length_ms(ap))
-	p.Bitrate = int(C.audiotags_audioproperties_bitrate(ap))
-	p.Samplerate = int(C.audiotags_audioproperties_samplerate(ap))
-	p.Channels = int(C.audiotags_audioproperties_channels(ap))
+	p.Length = int(C.audiotags_audioproperties_length(props))
+	p.Bitrate = int(C.audiotags_audioproperties_bitrate(props))
+	p.Samplerate = int(C.audiotags_audioproperties_samplerate(props))
+	p.Channels = int(C.audiotags_audioproperties_channels(props))
 	return &p
 }
 
@@ -127,7 +125,7 @@ func (f *File) ReadImage() (image.Image, error) {
 	id := mapsNextID.Add(1)
 	defer maps.Delete(id)
 
-	C.audiotags_read_picture((*C.TagLib_FileRefRef)(f), C.int(id))
+	C.audiotags_read_picture((*C.TagLib_File)(f), C.int(id))
 	v, ok := maps.Load(id)
 	if !ok {
 		return nil, nil
@@ -137,21 +135,19 @@ func (f *File) ReadImage() (image.Image, error) {
 }
 
 func (f *File) WriteImage(img image.Image, format int) error {
-	i, ok := img.(*image.NRGBA)
-	if !ok {
-		return fmt.Errorf("can't get convert image")
-	}
-
+	var formatStr string
 	buff := bytes.NewBuffer([]byte{})
 	switch format {
 	case JPEG:
-		if err := jpeg.Encode(buff, i.SubImage(i.Rect), &jpeg.Options{Quality: 65}); err != nil {
+		if err := jpeg.Encode(buff, img, &jpeg.Options{Quality: 65}); err != nil {
 			return err
 		}
+		formatStr = "image/jpeg"
 	case PNG:
-		if err := png.Encode(buff, i.SubImage(i.Rect)); err != nil {
+		if err := png.Encode(buff, img); err != nil {
 			return err
 		}
+		formatStr = "image/png"
 	default:
 		return fmt.Errorf("unsuppported image format")
 	}
@@ -161,23 +157,26 @@ func (f *File) WriteImage(img image.Image, format int) error {
 		return fmt.Errorf("can't write empty image")
 	}
 
-	if !f.WriteImageData(data, img.Bounds().Size().X, img.Bounds().Size().Y, format) {
+	if !f.WriteImageData(data, formatStr, img.Bounds().Size().X, img.Bounds().Size().Y) {
 		return fmt.Errorf("can't write image")
 	}
 
 	return nil
 }
 
-func (f *File) WriteImageData(data []byte, fmt, w, h int) bool {
+func (f *File) WriteImageData(data []byte, format string, w, h int) bool {
 	if len(data) == 0 {
 		return false
 	}
 
-	return bool(C.audiotags_write_picture((*C.TagLib_FileRefRef)(f), (*C.char)(unsafe.Pointer(&data[0])), C.uint(len(data)), C.int(w), C.int(h), C.int(fmt)))
+	formatCStr := C.CString(format)
+	defer C.free(unsafe.Pointer(formatCStr))
+
+	return bool(C.audiotags_write_picture((*C.TagLib_File)(f), (*C.char)(unsafe.Pointer(&data[0])), C.uint(len(data)), C.int(w), C.int(h), formatCStr))
 }
 
 func (f *File) RemovePictures() bool {
-	return bool(C.audiotags_remove_pictures((*C.TagLib_FileRefRef)(f)))
+	return bool(C.audiotags_remove_pictures((*C.TagLib_File)(f)))
 }
 
 var maps sync.Map

@@ -24,26 +24,28 @@
  *   USA                                                                   *
  ***************************************************************************/
 #include <stdbool.h>
+#include <stdlib.h>
+#include <tag_c.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef struct { void *fileRef; void *ioStream; } TagLib_FileRefRef;
-typedef struct { int dummy; } TagLib_AudioProperties;
+// typedef struct { void *fileRef; void *ioStream; } TagLib_File;
+//typedef struct { int dummy; } TagLib_AudioProperties;
 
 extern void goTagPut(int id, char *key, char *val);
 extern void goPutImage(int id, char *data, int size);
 
-TagLib_FileRefRef *audiotags_file_new(const char *filename);
-TagLib_FileRefRef *audiotags_file_memory(const char *data, unsigned int length);
-TagLib_FileRefRef *audiotags_file_memory_with_name(const char *fileName, const char *data, unsigned int length);
-void audiotags_file_close(TagLib_FileRefRef *file);
-void audiotags_file_properties(const TagLib_FileRefRef *file, int id);
-const TagLib_AudioProperties *audiotags_file_audioproperties(const TagLib_FileRefRef *file);
-bool audiotags_write_property(TagLib_FileRefRef *file, const char *field_c, const char *value_c);
-bool audiotags_write_properties(TagLib_FileRefRef *file, unsigned int len, const char *fields_c[], const char *values_c[]);
-bool audiotags_clear_properties(TagLib_FileRefRef *file);
+TagLib_File *audiotags_file_new(const char *filename);
+TagLib_File *audiotags_file_memory(const char *data, unsigned int length);
+TagLib_File *audiotags_file_memory_with_name(const char *fileName, const char *data, unsigned int length);
+void audiotags_file_close(TagLib_File *file);
+void audiotags_file_properties(const TagLib_File *file, int id);
+const TagLib_AudioProperties *audiotags_file_audioproperties(const TagLib_File *file);
+bool audiotags_write_property(TagLib_File *file, const char *field_c, const char *value_c);
+bool audiotags_write_properties(TagLib_File *file, unsigned int len, const char *fields_c[], const char *values_c[]);
+bool audiotags_clear_properties(TagLib_File *file);
 
 int audiotags_audioproperties_length(const TagLib_AudioProperties *audioProperties);
 int audiotags_audioproperties_length_ms(const TagLib_AudioProperties *audioProperties);
@@ -51,9 +53,9 @@ int audiotags_audioproperties_bitrate(const TagLib_AudioProperties *audioPropert
 int audiotags_audioproperties_samplerate(const TagLib_AudioProperties *audioProperties);
 int audiotags_audioproperties_channels(const TagLib_AudioProperties *audioProperties);
 
-void audiotags_read_picture(TagLib_FileRefRef *fileRefRef, int id);
-bool audiotags_write_picture(TagLib_FileRefRef *file, const char *data, unsigned int length, int w, int h, int type);
-bool audiotags_remove_pictures(TagLib_FileRefRef *file);
+bool audiotags_read_picture(TagLib_File *fileRef, int id);
+bool audiotags_write_picture(TagLib_File *file, const char *data, unsigned int length, int w, int h, const char *mime);
+bool audiotags_remove_pictures(TagLib_File *file);
 
 #ifdef __cplusplus
 }

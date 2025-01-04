@@ -136,6 +136,18 @@ func (f *File) ReadImage() (image.Image, error) {
 	return img, err
 }
 
+func (f *File) ReadImageRaw() *bytes.Reader {
+	id := mapsNextID.Add(1)
+	defer maps.Delete(id)
+
+	C.audiotags_read_picture((*C.TagLib_FileRefRef)(f), C.int(id))
+	v, ok := maps.Load(id)
+	if !ok {
+		return nil
+	}
+	return v.(*bytes.Reader)
+}
+
 func (f *File) WriteImage(img image.Image, format int) error {
 	i, ok := img.(*image.NRGBA)
 	if !ok {

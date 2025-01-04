@@ -1,8 +1,10 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
+	"io/fs"
 	"log"
 	"os"
 
@@ -15,6 +17,10 @@ var usage = func() {
 }
 
 func _main(filename string) error {
+	if _, err := os.Stat(filename); errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+
 	f, err := audiotags.Open(filename)
 	if err != nil {
 		return fmt.Errorf("error reading file: %v", err)

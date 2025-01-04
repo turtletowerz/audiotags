@@ -113,6 +113,7 @@ func (f *File) ReadAudioProperties() *AudioProperties {
 	if props == nil {
 		return nil
 	}
+
 	p := AudioProperties{}
 	p.Length = int(C.audiotags_audioproperties_length(props))
 	p.Bitrate = int(C.audiotags_audioproperties_bitrate(props))

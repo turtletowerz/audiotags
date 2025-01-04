@@ -99,7 +99,7 @@ bool audiotags_write_properties(TagLib_File *fileRef, unsigned int len, const ch
 
 const TagLib_AudioProperties *audiotags_file_audioproperties(const TagLib_File *fileRef)
 {
-  return taglib_file_audioproperties(fileRef); // TODO: NULL check?
+  return taglib_file_audioproperties(fileRef);
 }
 
 int audiotags_audioproperties_length(const TagLib_AudioProperties *audioProperties)
@@ -137,13 +137,6 @@ bool audiotags_read_picture(TagLib_File *fileRef, int id)
   return true;
 }
 
-// enum img_type {
-//   JPEG = 0,
-//   PNG = 1,
-//   // to be continued...
-// };
-
-// TODO
 bool audiotags_write_picture(TagLib_File *fileRef, const char *data, unsigned int length, int w, int h, const char *mime)
 {
   TAGLIB_COMPLEX_PROPERTY_PICTURE(prop, data, length, "Written by go-taglib", mime, "Front Cover");
@@ -152,50 +145,6 @@ bool audiotags_write_picture(TagLib_File *fileRef, const char *data, unsigned in
     return false;
 
   return taglib_file_save(fileRef);
-
-
-  ///////
-
-  // const TagLib::ByteVector byte_vec = TagLib::ByteVector(data, length);
-
-  // // check which type the file is (flac, mp4, etc)
-  // if (TagLib::FLAC::File *flac = dynamic_cast<TagLib::FLAC::File *>(fileRef->file())) {
-  //   TagLib::FLAC::Picture *pic = new TagLib::FLAC::Picture;
-  //   // only front cover type supported for now
-  //   pic->setType(TagLib::FLAC::Picture::Type::FrontCover);
-  //   if(type == PNG) {
-  //     pic->setMimeType("image/png");
-  //   } else if (type == JPEG) {
-  //     pic->setMimeType("image/jpeg");
-  //   } else {
-  //     return false;
-  //   }
-
-  //   pic->setData(byte_vec);
-  //   pic->setWidth(w);
-  //   pic->setHeight(h);
-  //   pic->setColorDepth(24);
-  //   pic->setNumColors(16777216);
-  //   flac->addPicture(pic);
-  //   flac->save();
-  // } else if (TagLib::MP4::File *mp4 = dynamic_cast<TagLib::MP4::File *>(fileRef->file())) {
-  //   TagLib::MP4::CoverArt::Format fmt = TagLib::MP4::CoverArt::Format::Unknown;
-  //   if(type == PNG) {
-  //     fmt = TagLib::MP4::CoverArt::Format::PNG;
-  //   } else if (type == JPEG) {
-  //     fmt = TagLib::MP4::CoverArt::Format::JPEG;
-  //   } else {
-  //     return false;
-  //   }
-
-  //   TagLib::MP4::CoverArtList l = mp4->tag()->item("covr").toCoverArtList();
-  //   l.prepend(TagLib::MP4::CoverArt(fmt, byte_vec));
-  //   mp4->tag()->setItem("covr", l);
-  //   mp4->save();
-  // } else {
-  //   return false;
-  // }
-  // return true;
 }
 
 bool audiotags_remove_pictures(TagLib_File *fileRef)

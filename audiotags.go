@@ -29,10 +29,12 @@ package audiotags
 import "C"
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"image"
 	"image/jpeg"
 	"image/png"
+	"io"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -44,10 +46,16 @@ const (
 	PNG
 )
 
+var ErrBadFile = errors.New("cannot process: not a file supported by TagLib")
+
 type File C.TagLib_File
 
 func (f *File) HasMedia() bool {
-	return !f.ReadAudioProperties().isEmpty()
+	props := f.ReadAudioProperties()
+	if props == nil {
+		return false
+	}
+	return !props.isEmpty()
 }
 
 type AudioProperties struct {
@@ -63,7 +71,20 @@ func Open(filename string) (*File, error) {
 	defer C.free(unsafe.Pointer(fp))
 	f := C.audiotags_file_new(fp)
 	if f == nil {
-		return nil, fmt.Errorf("cannot process %s", filename)
+		return nil, ErrBadFile
+	}
+	return (*File)(f), nil
+}
+
+func OpenReader(r io.Reader) (*File, error) {
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return nil, fmt.Errorf("reading byte stream: %w", err)
+	}
+
+	f := C.audiotags_file_memory((*C.char)(unsafe.Pointer(&data[0])), C.uint(len(data)))
+	if f == nil {
+		return nil, ErrBadFile
 	}
 	return (*File)(f), nil
 }
@@ -171,14 +192,14 @@ func (f *File) WriteImage(img image.Image, format int) error {
 		return fmt.Errorf("can't write empty image")
 	}
 
-	if !f.WriteImageData(data, formatStr, img.Bounds().Size().X, img.Bounds().Size().Y) {
+	if !f.WriteImageRaw(data, formatStr, img.Bounds().Size().X, img.Bounds().Size().Y) {
 		return fmt.Errorf("can't write image")
 	}
 
 	return nil
 }
 
-func (f *File) WriteImageData(data []byte, format string, w, h int) bool {
+func (f *File) WriteImageRaw(data []byte, format string, w, h int) bool {
 	if len(data) == 0 {
 		return false
 	}
@@ -189,7 +210,7 @@ func (f *File) WriteImageData(data []byte, format string, w, h int) bool {
 	return bool(C.audiotags_write_picture((*C.TagLib_File)(f), (*C.char)(unsafe.Pointer(&data[0])), C.uint(len(data)), C.int(w), C.int(h), formatCStr))
 }
 
-func (f *File) RemovePictures() bool {
+func (f *File) RemoveImages() bool {
 	return bool(C.audiotags_remove_pictures((*C.TagLib_File)(f)))
 }
 

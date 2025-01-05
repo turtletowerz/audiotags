@@ -31,8 +31,12 @@ static bool unicodeStrings = true;
 TagLib_File *audiotags_file_new(const char *filename)
 {
   TagLib_File *fr = taglib_file_new(filename);
-  if (fr == NULL || !taglib_file_is_valid(fr)) {
+  if (fr == NULL)
+    return NULL;
+
+  if (!taglib_file_is_valid(fr)) {
     taglib_file_free(fr);
+    return NULL;
   }
 
   return fr;
@@ -40,8 +44,14 @@ TagLib_File *audiotags_file_new(const char *filename)
 
 TagLib_File *audiotags_file_memory(const char *data, unsigned int length) {
   TagLib_IOStream *ioStream = taglib_memory_iostream_new(data, length);
+  if (ioStream == NULL)
+    return NULL;
+
   TagLib_File *fr = taglib_file_new_iostream(ioStream);
-  if (fr == NULL || !taglib_file_is_valid(fr)) {
+  if (fr == NULL)
+    return NULL;
+
+  if (!taglib_file_is_valid(fr)) {
     taglib_file_free(fr);
     taglib_iostream_free(ioStream);
     return NULL;
@@ -53,7 +63,8 @@ TagLib_File *audiotags_file_memory(const char *data, unsigned int length) {
 void audiotags_file_properties(const TagLib_File *fileRef, int id)
 {
   // From https://github.com/taglib/taglib/blob/master/tests/test_tag_c.cpp
-  if (char **keys = taglib_property_keys(fileRef)) {
+  char **keys = taglib_property_keys(fileRef);
+  if (keys) {
     char **keyPtr = keys;
     
     while (*keyPtr) {
@@ -74,7 +85,8 @@ void audiotags_file_properties(const TagLib_File *fileRef, int id)
 
 bool audiotags_clear_properties(TagLib_File *fileRef)
 {
-  if (char **keys = taglib_property_keys(fileRef)) {
+  char **keys = taglib_property_keys(fileRef);
+  if (keys) {
     char **keyPtr = keys;
     
     while (*keyPtr) {

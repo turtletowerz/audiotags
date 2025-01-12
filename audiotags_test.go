@@ -16,24 +16,25 @@ import (
 
 type testdata struct {
 	openErr  error
-	hasMedia bool
+	hasCover bool
 	noTags   bool
 }
 
 var defaultData = testdata{nil, true, false}
 
 var fileTestdata = map[string]testdata{
-	"testdata/metadata":          {audiotags.ErrBadFile, false, false},
-	"testdata/sample.ape":        defaultData,
-	"testdata/sample.flac":       defaultData,
-	"testdata/sample.id3v11.mp3": {nil, true, true}, // TODO: This appears to be a bug as there are actually tags on the file
-	"testdata/sample.id3v22.mp3": defaultData,
-	"testdata/sample.id3v23.mp3": defaultData,
-	"testdata/sample.id3v24.mp3": defaultData,
-	"testdata/sample.m4a":        defaultData,
-	"testdata/sample.mp4":        defaultData,
-	"testdata/sample.ogg":        defaultData,
-	"testdata/sample.wv":         defaultData,
+	"testdata/metadata":           {audiotags.ErrBadFile, false, false},
+	"testdata/sample.ape":         defaultData,
+	"testdata/sample-noimage.ape": {nil, false, true},
+	"testdata/sample.flac":        defaultData,
+	"testdata/sample.id3v11.mp3":  {nil, true, true}, // TODO: This appears to be a bug as there are actually tags on the file
+	"testdata/sample.id3v22.mp3":  defaultData,
+	"testdata/sample.id3v23.mp3":  defaultData,
+	"testdata/sample.id3v24.mp3":  defaultData,
+	"testdata/sample.m4a":         defaultData,
+	"testdata/sample.mp4":         defaultData,
+	"testdata/sample.ogg":         defaultData,
+	"testdata/sample.wv":          defaultData,
 }
 
 func withOpen(t *testing.T, mem bool, fn func(*audiotags.File, testdata) error) {
@@ -75,6 +76,7 @@ func withOpen(t *testing.T, mem bool, fn func(*audiotags.File, testdata) error) 
 		defer audio.Close()
 
 		if fn != nil {
+			//fmt.Println("testing", path)
 			if err = fn(audio, data); err != nil {
 				return fmt.Errorf("test failed for file %q: %s", path, err)
 			}
@@ -95,11 +97,10 @@ func TestOpen(t *testing.T) {
 	withOpen(t, false, nil)
 }
 
-func TestHasMedia(t *testing.T) {
+func TestHasCover(t *testing.T) {
 	withOpen(t, false, func(f *audiotags.File, data testdata) error {
-		hasMedia := f.HasMedia()
-		if hasMedia != data.hasMedia {
-			return fmt.Errorf("expected hasMedia %t but got %t", data.hasMedia, hasMedia)
+		if !f.HasProperties() {
+			return errors.New("expected media properties but found none")
 		}
 		return nil
 	})
@@ -109,7 +110,7 @@ func TestReadTags(t *testing.T) {
 	withOpen(t, false, func(f *audiotags.File, data testdata) error {
 		tags := f.ReadTags()
 		if len(tags) == 0 && !data.noTags {
-			return fmt.Errorf("no tags")
+			return errors.New("no tags")
 		}
 		return nil
 	})
@@ -119,11 +120,11 @@ func TestWriteTags(t *testing.T) {
 	withOpen(t, false, func(f *audiotags.File, data testdata) error {
 		tags := f.ReadTags()
 		if len(tags) == 0 && !data.noTags {
-			return fmt.Errorf("no tags")
+			return errors.New("no tags")
 		}
 
 		if !f.WriteTags(tags) {
-			return fmt.Errorf("could not write tags")
+			return errors.New("could not write tags")
 		}
 		return nil
 	})
@@ -133,11 +134,14 @@ func TestReadImage(t *testing.T) {
 	withOpen(t, false, func(f *audiotags.File, data testdata) error {
 		img, err := f.ReadImage()
 		if err != nil {
-			return fmt.Errorf("reading image: %w", err)
+			if data.hasCover {
+				return fmt.Errorf("reading image: %w", err)
+			}
+			return nil
 		}
 
 		if img.Bounds().Dx() == 0 || img.Bounds().Dy() == 0 {
-			return fmt.Errorf("empty embedded art")
+			return errors.New("empty embedded art")
 		}
 		return nil
 	})
@@ -146,6 +150,13 @@ func TestReadImage(t *testing.T) {
 func TestReadImageRaw(t *testing.T) {
 	withOpen(t, false, func(f *audiotags.File, data testdata) error {
 		b := f.ReadImageRaw()
+		if b == nil {
+			if data.hasCover {
+				return errors.New("expected cover, but found none")
+			}
+			return nil
+		}
+
 		img, typ, err := image.Decode(b)
 		if err != nil {
 			return fmt.Errorf("reading image: %w", err)
@@ -156,17 +167,20 @@ func TestReadImageRaw(t *testing.T) {
 		}
 
 		if img.Bounds().Dx() == 0 || img.Bounds().Dy() == 0 {
-			return fmt.Errorf("empty embedded art")
+			return errors.New("empty embedded art")
 		}
 		return nil
 	})
 }
 
 func TestWriteImage(t *testing.T) {
-	withOpen(t, false, func(f *audiotags.File, _ testdata) error {
+	withOpen(t, false, func(f *audiotags.File, data testdata) error {
 		img, err := f.ReadImage()
 		if err != nil {
-			return fmt.Errorf("reading image: %w", err)
+			if data.hasCover {
+				return fmt.Errorf("reading image: %w", err)
+			}
+			return nil
 		}
 
 		if err = f.WriteImage(img, audiotags.JPEG); err != nil {
@@ -177,8 +191,15 @@ func TestWriteImage(t *testing.T) {
 }
 
 func TestWriteImageRaw(t *testing.T) {
-	withOpen(t, false, func(f *audiotags.File, _ testdata) error {
+	withOpen(t, false, func(f *audiotags.File, data testdata) error {
 		b := f.ReadImageRaw()
+		if b == nil {
+			if data.hasCover {
+				return errors.New("expected cover, but found none")
+			}
+			return nil
+		}
+
 		img, typ, err := image.Decode(b)
 		if err != nil {
 			return fmt.Errorf("reading image: %w", err)
@@ -189,7 +210,7 @@ func TestWriteImageRaw(t *testing.T) {
 		}
 
 		if img.Bounds().Dx() == 0 || img.Bounds().Dy() == 0 {
-			return fmt.Errorf("empty embedded art")
+			return errors.New("empty embedded art")
 		}
 
 		var out bytes.Buffer
@@ -199,17 +220,20 @@ func TestWriteImageRaw(t *testing.T) {
 
 		size := img.Bounds().Size()
 		if !f.WriteImageRaw(out.Bytes(), "image/jpeg", size.X, size.Y) {
-			return fmt.Errorf("couldn't write raw image")
+			return errors.New("couldn't write raw image")
 		}
 		return nil
 	})
 }
 
 func TestWriteImagePNG(t *testing.T) {
-	withOpen(t, false, func(f *audiotags.File, _ testdata) error {
+	withOpen(t, false, func(f *audiotags.File, data testdata) error {
 		img, err := f.ReadImage()
 		if err != nil {
-			return fmt.Errorf("reading image: %w", err)
+			if data.hasCover {
+				return fmt.Errorf("reading image: %w", err)
+			}
+			return nil
 		}
 
 		var out bytes.Buffer
@@ -230,14 +254,17 @@ func TestWriteImagePNG(t *testing.T) {
 }
 
 func TestBadImageWrite(t *testing.T) {
-	withOpen(t, false, func(f *audiotags.File, _ testdata) error {
+	withOpen(t, false, func(f *audiotags.File, data testdata) error {
 		img, err := f.ReadImage()
 		if err != nil {
-			return fmt.Errorf("reading image: %w", err)
+			if data.hasCover {
+				return fmt.Errorf("reading image: %w", err)
+			}
+			return nil
 		}
 
 		if err = f.WriteImage(img, audiotags.PNG+1); err == nil {
-			return fmt.Errorf("expected error, got nil")
+			return errors.New("expected error, got nil")
 		}
 
 		// img.Bounds().Intersect(image.Rect(0, 0, 0, 0))
@@ -249,9 +276,9 @@ func TestBadImageWrite(t *testing.T) {
 }
 
 func TestRemoveImages(t *testing.T) {
-	withOpen(t, false, func(f *audiotags.File, _ testdata) error {
-		if !f.RemoveImages() {
-			return fmt.Errorf("could not remove embedded art")
+	withOpen(t, false, func(f *audiotags.File, data testdata) error {
+		if data.hasCover && !f.RemoveImages() {
+			return errors.New("could not remove embedded art")
 		}
 		return nil
 	})

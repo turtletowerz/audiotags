@@ -11,6 +11,8 @@ import (
 	"github.com/sentriz/audiotags"
 )
 
+var removeImages = flag.Bool("remove-images", false, "Remove embedded images from the input")
+
 var usage = func() {
 	_, _ = fmt.Fprintf(os.Stderr, "usage: %s [optional flags] filename\n", os.Args[0])
 	flag.PrintDefaults()
@@ -26,8 +28,8 @@ func _main(filename string) error {
 		return fmt.Errorf("error reading file: %v", err)
 	}
 
-	if !f.HasMedia() {
-		return fmt.Errorf("no supported media in file")
+	if !f.HasProperties() {
+		return fmt.Errorf("no supported properties in file")
 	}
 
 	fmt.Printf("\nTags: \n")
@@ -50,6 +52,10 @@ func _main(filename string) error {
 	fmt.Printf("Length: %v\n", props.Length)
 	fmt.Printf("Samplerate: %d\n", props.Samplerate)
 	fmt.Printf("Channels: %d\n", props.Channels)
+
+	if *removeImages {
+		f.RemoveImages()
+	}
 
 	// coverFile, err := os.Create("cover.png")
 	// if err != nil {

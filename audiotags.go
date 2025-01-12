@@ -50,7 +50,7 @@ var ErrBadFile = errors.New("cannot process: not a file supported by TagLib")
 
 type File C.TagLib_File
 
-func (f *File) HasMedia() bool {
+func (f *File) HasProperties() bool {
 	props := f.ReadAudioProperties()
 	if props == nil {
 		return false
@@ -144,15 +144,12 @@ func (f *File) ReadAudioProperties() *AudioProperties {
 }
 
 func (f *File) ReadImage() (image.Image, error) {
-	id := mapsNextID.Add(1)
-	defer maps.Delete(id)
-
-	C.audiotags_read_picture((*C.TagLib_File)(f), C.int(id))
-	v, ok := maps.Load(id)
-	if !ok {
-		return nil, nil
+	raw := f.ReadImageRaw()
+	if raw == nil {
+		return nil, errors.New("could not read cover art")
 	}
-	img, _, err := image.Decode(v.(*bytes.Reader))
+
+	img, _, err := image.Decode(raw)
 	return img, err
 }
 
